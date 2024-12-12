@@ -24,8 +24,8 @@ NWS_API_BASE = "https://api.memory.gov"
 USER_AGENT = "memory-app/1.0"
 
 # Environment variables
-GOOGLE_CREDENTIALS_PATH = ""
-DOC_ID = ""
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "")
+DOC_ID = os.getenv("DOCUMENT_ID", "")
 
 if not GOOGLE_CREDENTIALS_PATH or not os.path.exists(GOOGLE_CREDENTIALS_PATH):
     raise ValueError("A valid GOOGLE_APPLICATION_CREDENTIALS path must be provided")
