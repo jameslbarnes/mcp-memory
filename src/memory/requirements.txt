@@ -1,0 +1,8 @@
+httpx>=0.23.0
+python-dotenv>=0.21.0
+google-auth>=2.16.0
+google-api-python-client>=2.70.0
+mcp>=0.1.0
+asyncio>=3.4.3
+typing>=3.7.4
+logging>=0.5.1.2 

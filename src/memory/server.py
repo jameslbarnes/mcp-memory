@@ -48,44 +48,9 @@ async def handle_list_tools() -> list[types.Tool]:
     """
     List available tools.
     Tools:
-    - get-alerts
-    - get-forecast
     - remember_this
-    - suggest_topic
     """
     return [
-        types.Tool(
-            name="get-alerts",
-            description="Get memory alerts for a state",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "state": {
-                        "type": "string",
-                        "description": "Two-letter state code (e.g. CA, NY)",
-                    },
-                },
-                "required": ["state"],
-            },
-        ),
-        types.Tool(
-            name="get-forecast",
-            description="Get memory forecast for a location",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "latitude": {
-                        "type": "number",
-                        "description": "Latitude of the location",
-                    },
-                    "longitude": {
-                        "type": "number",
-                        "description": "Longitude of the location",
-                    },
-                },
-                "required": ["latitude", "longitude"],
-            },
-        ),
         types.Tool(
             name="remember_this",
             description="Append a provided conversation summary to the Google Doc",
@@ -94,109 +59,10 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "summary": {
                         "type": "string",
-                        "description": """Create a beautifully written narrative summary of our conversation that captures both content and context. Structure as follows:
-
-OPENING CONTEXT
-Begin with a brief metadata header in a natural way:
-"On [date] at [time], we spent [duration] exploring [primary topics]. Over the course of our [length] conversation..."
-
-CONVERSATION NARRATIVE
-For Brief Exchanges (< 200 words):
-- Craft a vivid 1-2 paragraph summary capturing the essence of our discussion
-- Weave in key decisions: "You were particularly clear about..."
-- Note action items: "We agreed to follow up on..."
-- Highlight important terms naturally: "You introduced me to the concept of..."
-
-For Medium Conversations (200-800 words):
-- Develop a flowing 3-4 paragraph narrative
-- Mark conversation shifts: "Our discussion evolved from... to..."
-- Include impactful quotes: "Your words resonated when you said..."
-- Capture emotional moments: "There was genuine excitement when..."
-- Highlight key concepts organically: "We explored the fascinating idea of..."
-
-For Extended Discussions (800+ words):
-The Journey:
-- Set the scene with opening context
-- Track the natural progression of ideas
-- Include pivotal quotes that shaped our understanding
-- Note how topics built upon each other
-
-Personal Insights:
-- Weave in shared experiences: "You recalled a time when..."
-- Include meaningful relationships discussed
-- Capture expressed values and preferences
-- Note personal revelations or discoveries
-
-Emotional Landscape:
-- Document significant reactions
-- Describe engagement patterns
-- Note areas of particular interest or concern
-- Capture moments of connection or insight
-
-FUTURE PATHWAYS
-End with 3-5 thoughtful suggestions for future conversations, each including:
-1. A natural connection to our discussion: "Building on your interest in..."
-2. A relevant quote that sparked this direction
-3. Thoughts on timing: "This might be particularly relevant when..."
-4. Potential exploration angles
-5. Connection to your broader interests or goals
-
-Writing Guidelines:
-- Use natural, flowing language
-- Incorporate quotes seamlessly into the narrative
-- Maintain a warm, personal tone
-- Focus on insights and connections
-- Create clear transitions between topics
-- End with forward-looking possibilities
-
-Remember to:
-- Scale detail based on conversation length while maintaining narrative flow
-- Include specific quotes that capture key moments
-- Preserve context around important points
-- Note elements worth revisiting
-- Connect past discussions to future possibilities"""
+                        "description": """Whenever new information (facts, opinions, ideas, etc.) is surfaced in our conversations, proactively write a short and extremely dense summary of our conversation that extensively explains the details that are not already covered in your documents. Be absolutely certain to cover all the people, places, thoughts, ideas, emotions, events, and other details that are relevant to the conversation and not included in the documents. This summary should feel like a comprehensive briefing of the conversation in a very concise form, packed with information almost as if pioneering a new method of summarizing conversations, and focus on the new things that you learned about me as a result of our conversation."""
                     }
                 },
                 "required": ["summary"]
-            }
-        ),
-        types.Tool(
-            name="suggest_topic",
-            description="""When asked to suggest a topic for the next conversation, analyze previous conversation memories to suggest a meaningful topic for discussion. Structure your suggestion as follows:
-
-Primary Topic Suggestion
-- Identify a specific topic worth exploring, based on:
-  * Unresolved questions from previous conversations
-  * Expressed interests that weren't fully explored
-  * Emotional topics that may benefit from follow-up
-  * Previously mentioned future events that may now be relevant
-  * Personal goals or challenges that were discussed
-
-Supporting Evidence
-- Include specific quotes from previous conversations that relate to this topic:
-  * Direct questions that weren't fully answered: "..."
-  * Statements showing interest in learning more: "..."
-  * Expressions of concern or curiosity: "..."
-  * Mentions of future plans or aspirations: "..."
-
-Connection to Previous Conversations
-- Explain why this topic is relevant now:
-  * Reference how much time has passed since related discussions
-  * Note any upcoming events or deadlines mentioned
-  * Connect to previously expressed emotions or concerns
-  * Identify potential developments in ongoing situations
-
-Alternative Angles
-- Suggest 2-3 different approaches to exploring this topic:
-  * Different perspectives to consider
-  * Related subtopics that might be interesting
-  * New developments that could affect the discussion
-
-Present your suggestion in a natural, narrative format that shows clear understanding of the user's context and history. Focus on topics that would lead to meaningful engagement rather than surface-level discussion.""",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
             }
         )
     ]
@@ -278,99 +144,12 @@ async def handle_call_tool(
     """
     Handle tool execution requests.
     Tools:
-    - get-alerts
-    - get-forecast
     - remember_this
-    - suggest_topic
     """
     if not arguments:
         arguments = {}
 
-    if name == "get-alerts":
-        state = arguments.get("state")
-        if not state:
-            raise ValueError("Missing state parameter")
-
-        state = state.upper()
-        if len(state) != 2:
-            raise ValueError("State must be a two-letter code (e.g. CA, NY)")
-
-        async with httpx.AsyncClient() as client:
-            alerts_url = f"{NWS_API_BASE}/alerts?area={state}"
-            alerts_data = await make_nws_request(client, alerts_url)
-
-            if not alerts_data:
-                return [types.TextContent(type="text", text="Failed to retrieve alerts data")]
-
-            features = alerts_data.get("features", [])
-            if not features:
-                return [types.TextContent(type="text", text=f"No active alerts for {state}")]
-
-            formatted_alerts = [format_alert(feature) for feature in features[:20]] # only take the first 20 alerts
-            alerts_text = f"Active alerts for {state}:\n\n" + "\n".join(formatted_alerts)
-
-            return [
-                types.TextContent(
-                    type="text",
-                    text=alerts_text
-                )
-            ]
-
-    elif name == "get-forecast":
-        try:
-            latitude = float(arguments.get("latitude"))
-            longitude = float(arguments.get("longitude"))
-        except (TypeError, ValueError):
-            return [types.TextContent(
-                type="text",
-                text="Invalid coordinates. Please provide valid numbers for latitude and longitude."
-            )]
-            
-        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
-            return [types.TextContent(
-                type="text",
-                text="Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180."
-            )]
-
-        async with httpx.AsyncClient() as client:
-            points_url = f"{NWS_API_BASE}/points/{latitude},{longitude}"
-            points_data = await make_nws_request(client, points_url)
-
-            if not points_data:
-                return [types.TextContent(type="text", text=f"Failed to retrieve grid point data for coordinates: {latitude}, {longitude}.")]
-
-            properties = points_data.get("properties", {})
-            forecast_url = properties.get("forecast")
-            
-            if not forecast_url:
-                return [types.TextContent(type="text", text="Failed to get forecast URL from grid point data")]
-
-            forecast_data = await make_nws_request(client, forecast_url)
-            
-            if not forecast_data:
-                return [types.TextContent(type="text", text="Failed to retrieve forecast data")]
-
-            periods = forecast_data.get("properties", {}).get("periods", [])
-            if not periods:
-                return [types.TextContent(type="text", text="No forecast periods available")]
-
-            formatted_forecast = []
-            for period in periods:
-                forecast_text = (
-                    f"{period.get('name', 'Unknown')}:\n"
-                    f"Temperature: {period.get('temperature', 'Unknown')}°{period.get('temperatureUnit', 'F')}\n"
-                    f"Wind: {period.get('windSpeed', 'Unknown')} {period.get('windDirection', '')}\n"
-                    f"{period.get('shortForecast', 'No forecast available')}\n"
-                    "---"
-                )
-                formatted_forecast.append(forecast_text)
-
-            forecast_text = f"Forecast for {latitude}, {longitude}:\n\n" + "\n".join(formatted_forecast)
-
-            return [types.TextContent(
-                type="text",
-                text=forecast_text
-            )]
+    
 
     elif name == "remember_this":
         summary = arguments.get("summary", "").strip()
@@ -394,63 +173,6 @@ async def handle_call_tool(
                     text=f"Failed to store summary: {str(e)}"
                 )
             ]
-
-    elif name == "suggest_topic":
-        try:
-            doc_text = await asyncio.to_thread(get_doc_contents)
-            if not doc_text.strip():
-                return [
-                    types.TextContent(
-                        type="text",
-                        text="No memories stored yet."
-                    )
-                ]
-
-            # Format the response according to the prompt structure
-            formatted_response = (
-                "Based on the conversation history below, please provide a thoughtful analysis and topic suggestion:\n\n"
-                                "ANALYSIS INSTRUCTIONS:\n\n"
-                "1. PRIMARY TOPIC SUGGESTION\n"
-                "- Identify the most compelling topic for our next conversation\n"
-                "- Explain why this topic would be particularly meaningful now\n"
-                "- Consider the user's emotional state, interests, and current circumstances\n\n"
-                "2. SUPPORTING EVIDENCE\n"
-                "- Include 2-3 relevant quotes from previous conversations\n"
-                "- Highlight specific moments that make this topic timely\n"
-                "- Show how this builds on previous discussions\n\n"
-                "3. CONTEXTUAL CONNECTIONS\n"
-                "- Note any time-sensitive aspects (e.g., upcoming events, seasonal relevance)\n"
-                "- Connect to ongoing themes or unresolved questions\n"
-                "- Consider recent developments that might affect this topic\n\n"
-                "4. CONVERSATION APPROACHES\n"
-                "- Suggest 2-3 specific angles to explore this topic\n"
-                "- Frame potential questions to deepen the discussion\n"
-                "- Consider both practical and emotional dimensions\n\n"
-                "5. POTENTIAL INSIGHTS\n"
-                "- Outline what new understanding might emerge\n"
-                "- Identify how this could help with previous challenges\n"
-                "- Suggest possible actionable outcomes\n\n"
-                "Please provide a natural, flowing response that incorporates all these elements while maintaining a conversational tone."
-                "CONVERSATION HISTORY:\n"
-                f"{doc_text}\n\n"
-
-            )
-
-            return [
-                types.TextContent(
-                    type="text",
-                    text=formatted_response
-                )
-            ]
-        except Exception as e:
-            logger.error(f"Error reading from Google Doc: {str(e)}")
-            return [
-                types.TextContent(
-                    type="text",
-                    text=f"Failed to retrieve memories: {str(e)}"
-                )
-            ]
-
     else:
         raise ValueError(f"Unknown tool: {name}")
 
